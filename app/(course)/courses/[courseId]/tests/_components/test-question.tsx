@@ -16,9 +16,9 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import toast from "react-hot-toast";
-import { AnswerOption } from '@prisma/client'
 import { useState } from 'react'
 import axios from 'axios'
+import { Wrapper } from './wrapper'
  
  
 const FormSchema = z.object({
@@ -27,15 +27,34 @@ const FormSchema = z.object({
   }),
 })
 
+type Test = {
+	id: string;
+	question: string;
+	position: number;
+  chapterId: string;
+	isPublished: boolean;
+	answerOptions: {
+	  id: string;
+	  option: string;
+	  isCorrect: boolean;
+	  testId: string;
+	  position: number;
+	}[];
+  };
+
 interface TestProps {
+  tests: Test[]
 	chapterId: string;
-	question: string
-	answers: AnswerOption[]
+  courseId: string;
+  nextChapterId?: string;
+  completeOnEnd: boolean;
+	//question: string
+	//answers: AnswerOption[]
 
 	
   };
  
-export function CheckboxReactHookFormMultiple({chapterId, question, answers}: TestProps ) {
+export function CheckboxReactHookFormMultiple({chapterId, tests, courseId, nextChapterId, completeOnEnd}: TestProps ) {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -43,30 +62,37 @@ export function CheckboxReactHookFormMultiple({chapterId, question, answers}: Te
     },
   })
 
-  const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null >(null);
-  const [isActive, setisActive] = useState<boolean>(false);
+  const [isAnswerCorrect, setIsAnswerCorrect] = useState<Array<boolean | null>>(Array(tests.length).fill(null));
+  const [isTestActive, setIsTestActive] = useState<Array<boolean>>(Array(tests.length).fill(true));
+  const [allTestsCompleted, setAllTestsCompleted] = useState<boolean>(false);
 
-  const onSubmit = async (data: z.infer<typeof FormSchema>) => {
+
+  const handleSubmit = (index: number) => async (data: z.infer<typeof FormSchema>) => {
     try {
-   
-      const response = await axios.post(`/api/checkAnswer/${chapterId}`, {
+      const response = await axios.post(`/api/checkAnswer/${tests[index].chapterId}`, {
         selectedAnswers: data.items,
       });
 
-	  const correctAnswersFromServer = response.data.correctAnswers;
-   
-	  const isCorrect = data.items.every((answer: string) => correctAnswersFromServer.includes(answer))
-	 
-      if (isCorrect) {
-		toast.success("Success");
-        setIsAnswerCorrect(true);
-		setisActive(true);
-		
+      const correctAnswersFromServer = response.data.correctAnswers;
+      const isCorrect = data.items.every((answer: string) => correctAnswersFromServer.includes(answer));
 
+      const updatedAnswers = [...isAnswerCorrect];
+      updatedAnswers[index] = isCorrect;
+      setIsAnswerCorrect(updatedAnswers);
+
+      const updatedActiveStatus = [...isTestActive];
+      updatedActiveStatus[index] = false;
+      setIsTestActive(updatedActiveStatus);
+
+      const allCompleted = updatedAnswers.every((answer) => answer !== null);
+      setAllTestsCompleted(allCompleted);
+
+      if (isCorrect) {
+        toast.success('Success');
+    
       } else {
-		toast.error("Fail");
-        setIsAnswerCorrect(false);
-		setisActive(true);
+        toast.error('Fail');
+    
       }
     } catch (error) {
       console.error('Error checking answer:', error);
@@ -75,21 +101,24 @@ export function CheckboxReactHookFormMultiple({chapterId, question, answers}: Te
 
 
   return (
+    <>
+    <h1 className="text-2xl font-semibold mb-10">Test yourself</h1>
+   { tests.map((test, index) => (
 
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+    <Form key={test.id} {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit(index))} className="space-y-8 mb-20">
         <FormField
           control={form.control}
           name="items"
           render={() => (
             <FormItem>
               <div className="mb-4">
-                <FormLabel className="text-base">{question}</FormLabel>
-                <FormDescription>
-                  Select the correct answers.
+                <FormLabel className="text-base">{test.question}</FormLabel>
+                <FormDescription >
+                  (Select the correct answers.)
                 </FormDescription>
               </div>
-              {answers.map((item) => (
+              {test.answerOptions.map((item) => (
                 <FormField
                   key={item.id}
                   control={form.control}
@@ -101,7 +130,7 @@ export function CheckboxReactHookFormMultiple({chapterId, question, answers}: Te
                         className=" flex flex-row items-start space-x-3 space-y-0"
                       >
                         <FormControl>
-                          <Checkbox disabled={isActive}
+                          <Checkbox   disabled={!isTestActive[index]}
                             checked={field.value?.includes(item.id)}
                             onCheckedChange={(checked) => {
                               return checked
@@ -127,12 +156,14 @@ export function CheckboxReactHookFormMultiple({chapterId, question, answers}: Te
           )}
         />
 		
-      <Button  className={`${ isAnswerCorrect ? 'bg-green-500' : ' bg-red-500'}`} disabled={isActive} type="submit">Submit</Button>
-		   {/* <Button onClick={handleReset} type="button"  className="ml-4 bg-blue-500 text-white">
-          Reset
-           </Button> */}
+      <Button className={` ${isAnswerCorrect[index]  ? 'bg-green-500' : ' bg-red-500'} `}   disabled={!isTestActive[index]} type="submit">Submit</Button>
 
       </form>
     </Form>
+   ))}
+     {allTestsCompleted && (
+        <Wrapper courseId={courseId} nextChapterId={nextChapterId} completeOnEnd={completeOnEnd} chapterId={chapterId} tests={tests} />
+      )}
+     </>
   )
 }

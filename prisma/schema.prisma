@@ -18,18 +18,34 @@ model Course {
   price Float?
   isPublished Boolean @default(false)
 
+  isFavorite Boolean @default(false)
+
   categoryId String?
   category Category? @relation(fields: [categoryId], references: [id])
 
   chapters Chapter[]
   attachments Attachment[]
   purchases Purchase[]
+  favorites    Favorites[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([categoryId])
   @@fulltext([title])
+}
+
+
+model Favorites {
+  id String @id @default(uuid())
+  userId String
+
+  courseId String
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@unique([userId, courseId])
+
 }
 
 model Category {
@@ -62,6 +78,7 @@ model Test {
 
   chapterId String
   chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userAnswers UserAnswers[]
 
  @@index([chapterId])
 }
@@ -72,8 +89,21 @@ model AnswerOption {
   isCorrect Boolean @default(false)
   testId    String
   position  Int
+  userAnswers UserAnswers[]
 
   test      Test @relation(fields: [testId], references: [id])
+  @@index([testId])
+}
+
+model UserAnswers {
+  id        String @id @default(uuid())
+  userId    String
+
+  answerOption AnswerOption[]
+
+  testId String
+  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+
   @@index([testId])
 }
 

@@ -128,22 +128,24 @@ const ChapterIdPage = async ({
             </>
           )}
         </div>
-        { purchase ? (<div>
-        {tests && tests.map((test) => (
-		    <div className="p-4 mt-8 mb-8 justify-between" key={test.id}>
+        { purchase ? (
+        // <div>
+        // {tests && tests.map((test) => (
+		    <div className="p-4 mt-8 mb-8 justify-between">
 		      <CheckboxReactHookFormMultiple 
-			      question={test.question}
+            tests={tests}
+			      // question={test.question}
 			      chapterId={params.chapterId}
-			      answers={test.answerOptions}
+            completeOnEnd={completeOnEnd}
+            nextChapterId={nextChapter?.id}
+            courseId={params.courseId}
+			      // answers={test.answerOptions}
 			    />
-			 </div>
-			   ))}
-      </div>
+			  </div>
+			//    ))}
+      // </div>
          ) : null }
-        <Wrapper 
-			   courseId={params.courseId}
-			   tests={tests}
-			  />
+      
       </div>
     </div>
    );

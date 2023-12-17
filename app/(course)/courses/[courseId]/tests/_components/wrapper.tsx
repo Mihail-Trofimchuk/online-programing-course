@@ -18,7 +18,9 @@ import {
 import toast from "react-hot-toast";
 import { AnswerOption } from '@prisma/client'
 import { useState } from 'react'
+import { useRouter } from "next/navigation";
 import axios from 'axios'
+import { useConfettiStore } from "@/hooks/use-confetti-store";
 
  
  
@@ -45,11 +47,16 @@ const FormSchema = z.object({
 
 interface TestProps {
 	tests: Test[]
-	courseId: string;
+	chapterId: string;
+  courseId: string; 
+  nextChapterId?: string; 
+  completeOnEnd: boolean
 	//answers: AnswerOption[]
   };
  
-export function Wrapper({courseId,  tests}: TestProps ) {
+export function Wrapper({chapterId,  tests, courseId, nextChapterId, completeOnEnd}: TestProps ) {
+  const router = useRouter();
+  const confetti = useConfettiStore();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -73,7 +80,7 @@ export function Wrapper({courseId,  tests}: TestProps ) {
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     try {
-      const response = await axios.post(`/api/checkAnswer/${courseId}`, {
+      const response = await axios.post(`/api/checkAnswer/${chapterId}`, {
         selectedAnswers: data.items,
       });
 
@@ -91,31 +98,56 @@ export function Wrapper({courseId,  tests}: TestProps ) {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async  () => {
+
+    try {
+      if (completeOnEnd) {
+        await axios.put(`/api/courses/${courseId}/chapters/${chapterId}/progress`, {
+          isCompleted: true,
+        });
+
+        if (!nextChapterId) {
+          confetti.onOpen();
+        }
+
+        toast.success("Progress updated");
+        router.refresh();
+
+        if (nextChapterId) {
+          router.push(`/courses/${courseId}/chapters/${nextChapterId}`)
+        }
+      }
+    } catch {
+      toast.error("Something went wrong");
+    }
+
+
 	setIsActive(!isActive);
   };
 
   return (
 	<div >
-	<Button onClick={handleReset} type="button"  className="ml-4 bg-blue-500 text-white">
+	<Button onClick={handleReset} type="button"  className="mb-8 bg-black text-white">
         Get answers
 	</Button> 
 
-			{ isActive && tests.map((test) => (
-                <div key={test.id} >
-					<p>{test.question}</p>
-					{test.answerOptions.map((answer)=>(
-					
-					   
-					<p key={answer.id}>
-			
-					{ answer.isCorrect && <span style={{ color: 'green' }}> 	{answer.option} </span>}
-				  </p>
-					))}
-				</div>
-			))}
-			 </div>
-	
+  {isActive && tests.map((test) => (
+  <div key={test.id} className="border border-gray-300 p-4 mb-4 rounded">
+    <p className="font-bold text-lg mb-2">{test.question}</p>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {test.answerOptions.map((answer) => (
+        <p key={answer.id} className="mb-2">
+          {answer.isCorrect ? (
+            <span className="text-green-500 font-semibold">{answer.option}</span>
+          ) : (
+            <span className="text-red-500 font-semibold">{answer.option}</span>
+          )}
+        </p>
+      ))}
+    </div>
+  </div>
+))}
+</div>	
 
   )
 }
